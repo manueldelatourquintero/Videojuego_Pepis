@@ -81,7 +81,7 @@ def move_and_collide(entity, vx, vy, solid_tiles):
 # ══════════════════════════════════════════════
 SW, SH          = 1000, 600
 FPS             = 60
-TITLE           = "El Pepis v3 — Ingeniería de Sistemas"
+TITLE           = "ESCAPANDO CON PEPIS"
 
 GRAVITY         = 0.55
 JUMP_V          = -15.0
@@ -1660,23 +1660,597 @@ def draw_hud(surface, player, level, fonts, level_idx):
 
 class MenuScreen:
     """
-    Pantalla de menú principal cyberpunk AAA.
-    Instanciar una vez en Game.__init__ y llamar .draw() cada frame.
+    Menú principal cyberpunk AAA — 8 capas visuales.
+    Assets en assets/menu/ (ver guía al final de la clase).
+    Instanciar una vez. Llamar .draw() cada frame.
     """
-    N_PARTICLES = 55
-    CARD_W      = 172     # un poco más anchas
-    CARD_H      = 295     # más altas para que Pepis respire
-    CARD_GAP    = 14      # gap reducido para que quepan bien
-    CARDS_Y     = 212     # más arriba
 
-    # Paleta
-    NEON  = (0,  230, 180)
-    CYAN  = (0,  210, 255)
-    MAG   = (220,  40, 180)
-    GOLD  = (255, 210,  50)
-    GREEN = ( 60, 255, 120)
-    DIM   = (  3,   6,  14)
-    PANEL = (  0,  14,  24)
+    # ── Layout ────────────────────────────────────────────────────
+    CARD_W    = 170
+    CARD_H    = 268    # reducido: 298→268 (30px menos)
+    CARD_GAP  = 13
+    CARDS_Y   = 198    # un poco más arriba para dar aire abajo
+
+    # ── Paleta neon ───────────────────────────────────────────────
+    CYAN   = (  0, 210, 255)
+    NEON   = (  0, 255, 180)
+    MAG    = (220,  40, 180)
+    GOLD   = (255, 210,  50)
+    GREEN  = ( 55, 255, 115)
+    WHITE  = (200, 240, 255)
+    DIM    = (  3,   5,  12)
+    PANEL  = (  0,  10,  20)
+
+    N_PARTICLES = 70
+
+    def __init__(self, sw: int, sh: int, base_dir: str):
+        self.sw   = sw
+        self.sh   = sh
+        self.base = base_dir
+        self._t   = 0.0
+        self._glitch_timer = 0.0
+        self._glitch_on    = False
+
+        # Partículas flotantes
+        self._parts = [_Particle(sw, sh) for _ in range(self.N_PARTICLES)]
+
+        # Capas estáticas pre-renderizadas (se hacen UNA sola vez)
+        self._bg_static   = self._bake_bg_fallback()
+        self._fog_static  = self._bake_fog()
+        self._scanlines   = self._bake_scanlines()
+        self._vignette    = self._bake_vignette()
+
+        # ── Assets externos — todos en assets/menu/ ──────────────
+        m = os.path.join(base_dir, "assets", "menu")
+
+        # Fondo (más oscuro si existe)
+        self._bg_img      = self._load(m, "bg.png",           sw,   sh)
+        # Capa de neblina / niebla volumétrica
+        self._fog_img     = self._load(m, "fog.png",          sw,   sh)
+        # Overlay HUD (circuitos, líneas, esquinas)
+        self._hud_img     = self._load(m, "hud_overlay.png",  sw,   sh)
+        # Logo título "ESCAPANDO CON PEPIS"
+        self._logo_img    = self._load(m, "logo.png",         700,  170)
+        # Marco holográfico de cada tarjeta
+        self._card_frame  = self._load(m, "card_frame.png",   self.CARD_W, self.CARD_H)
+        # Sprite de Pepis para las tarjetas
+        self._pepis_card  = self._load(m, "pepis.png",        150,  195)
+        # Holograma circular (anillo) bajo el personaje
+        self._holo_ring   = self._load(m, "holo_ring.png",    160,  40)
+        # Iconos de controles
+        self._ico_move    = self._load(m, "icon_move.png",    38,   38)
+        self._ico_jump    = self._load(m, "icon_jump.png",    38,   38)
+        self._ico_skull   = self._load(m, "icon_skull.png",   38,   38)
+        # Textura de ruido para efecto cinematográfico
+        self._noise_img   = self._load(m, "noise.png",        sw,   sh)
+
+    # ── Cargador con colorkey automático ─────────────────────────
+    def _load(self, folder: str, name: str, w: int, h: int):
+        p = os.path.join(folder, name)
+        if not os.path.exists(p):
+            return None
+        try:
+            img = pygame.image.load(p).convert_alpha()
+            # Hacer transparente el negro puro (< umbral 40)
+            arr3 = pygame.surfarray.pixels3d(img)
+            arra = pygame.surfarray.pixels_alpha(img)
+            dark = (arr3[:,:,0].astype(int) +
+                    arr3[:,:,1].astype(int) +
+                    arr3[:,:,2].astype(int)) < 40
+            arra[dark] = 0
+            del arr3, arra
+            return pygame.transform.scale(img, (w, h))
+        except Exception:
+            return None
+
+    # ══ CAPAS ESTÁTICAS (baked) ═══════════════════════════════════
+
+    def _bake_bg_fallback(self) -> pygame.Surface:
+        """Degradado azul-negro de ciudad nocturna + bokeh."""
+        sw, sh = self.sw, self.sh
+        s = pygame.Surface((sw, sh))
+        for y in range(sh):
+            t = y / sh
+            pygame.draw.line(s, (int(3+5*t), int(4+7*t), int(12+18*t)), (0,y),(sw,y))
+        random.seed(77)
+        for _ in range(80):
+            bx = random.randint(0, sw)
+            by = random.randint(0, sh // 2)   # solo zona superior (cielo)
+            br = random.randint(2, 18)
+            col = random.choice([(0,45,65),(50,0,50),(0,35,22),(30,30,0),(0,25,55)])
+            bs  = pygame.Surface((br*2,br*2), pygame.SRCALPHA)
+            pygame.draw.circle(bs, (*col, 70), (br,br), br)
+            s.blit(bs, (bx-br, by-br))
+        random.seed()
+        return s
+
+    def _bake_fog(self) -> pygame.Surface:
+        """Niebla horizontal difusa en la parte baja."""
+        sw, sh = self.sw, self.sh
+        s = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        for y in range(sh//2, sh):
+            t = (y - sh//2) / (sh//2)
+            a = int(t * 45)
+            pygame.draw.line(s, (0, 20, 30, a), (0,y),(sw,y))
+        return s
+
+    def _bake_scanlines(self) -> pygame.Surface:
+        s = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
+        for y in range(0, self.sh, 3):
+            pygame.draw.line(s, (0,0,0,38), (0,y),(self.sw,y))
+        return s
+
+    def _bake_vignette(self) -> pygame.Surface:
+        sw, sh = self.sw, self.sh
+        s = pygame.Surface((sw, sh), pygame.SRCALPHA)
+        cx, cy = sw//2, sh//2
+        max_r  = math.hypot(cx, cy)
+        for step in range(0, 80, 3):
+            r = int(max_r * (1 - step/80))
+            a = step // 3
+            if r > 0:
+                pygame.draw.ellipse(s, (0,0,0,a),
+                                    (cx-r, cy-r, r*2, r*2))
+        return s
+
+    # ══ HELPERS ═══════════════════════════════════════════════════
+
+    @staticmethod
+    def _glow(surf, text, font, col, x, y, r=7, steps=8):
+        gc = (col[0]//4, col[1]//4, col[2]//4)
+        offsets = [(-r,0),(r,0),(0,-r),(0,r),
+                   (-r,-r),(r,-r),(-r,r),(r,r)]
+        for dx, dy in offsets[:steps]:
+            surf.blit(font.render(text, True, gc), (x+dx, y+dy))
+        surf.blit(font.render(text, True, col), (x, y))
+
+    @staticmethod
+    def _hex_bracket(surf, x, y, w, h, col, thickness=2):
+        """Marco con cortes en las esquinas estilo hexagonal HUD."""
+        cut = 12
+        pts = [
+            (x+cut, y),   (x+w-cut, y),
+            (x+w,   y+cut),(x+w,   y+h-cut),
+            (x+w-cut, y+h),(x+cut, y+h),
+            (x,     y+h-cut),(x,   y+cut),
+        ]
+        pygame.draw.polygon(surf, col, pts, thickness)
+
+    def _pulse_col(self, col, speed=1.5, lo=0.5, hi=1.0):
+        """Devuelve el color modulado por un seno para efecto de pulso."""
+        f = lo + (hi-lo) * abs(math.sin(self._t * speed))
+        return (int(col[0]*f), int(col[1]*f), int(col[2]*f))
+
+    def _noise_overlay(self, surf):
+        """Ruido cinematográfico sutil (sin asset externo)."""
+        if self._noise_img:
+            n = self._noise_img.copy()
+            n.set_alpha(18)
+            surf.blit(n, (0, 0))
+        else:
+            # Ruido generado: solo si no hay imagen (costoso, se hace a baja res)
+            pass   # omitir para no penalizar FPS
+
+    # ══ CAPAS DE DIBUJO ═══════════════════════════════════════════
+
+    # ── Capa 1: Fondo animado ─────────────────────────────────────
+    def _layer_1_background(self, surf):
+        surf.blit(self._bg_static, (0, 0))
+        if self._bg_img:
+            dark = self._bg_img.copy()
+            ov   = pygame.Surface(dark.get_size(), pygame.SRCALPHA)
+            ov.fill((0, 0, 0, 80))
+            dark.blit(ov, (0,0))
+            surf.blit(dark, (0,0))
+
+    # ── Capa 2: Niebla / partículas ───────────────────────────────
+    def _layer_2_fog_particles(self, surf):
+        if self._fog_img:
+            fog = self._fog_img.copy()
+            # Niebla respira
+            fog.set_alpha(int(110 + 40*abs(math.sin(self._t*0.4))))
+            surf.blit(fog, (0,0))
+        else:
+            surf.blit(self._fog_static, (0,0))
+        for p in self._parts:
+            p.update(self.sw, self.sh)
+            p.draw(surf)
+
+    # ── Capa 3: HUD overlay (circuitos, líneas) ───────────────────
+    def _layer_3_hud_overlay(self, surf):
+        if self._hud_img:
+            surf.blit(self._hud_img, (0,0))
+
+        # Barras superior e inferior siempre presentes
+        for bar_y, flip in [(0, False), (self.sh - 32, True)]:
+            b = pygame.Surface((self.sw, 32), pygame.SRCALPHA)
+            b.fill((0, 8, 18, 220))
+            line_y = 31 if not flip else 0
+            pygame.draw.line(b, self.CYAN, (0, line_y), (self.sw, line_y), 2)
+            # Detalle: pequeños ticks animados en la línea
+            tick_x = int((self._t * 120) % self.sw)
+            pygame.draw.line(b, self.NEON, (tick_x, line_y-3), (tick_x, line_y+3), 2)
+            surf.blit(b, (0, bar_y))
+
+        # Barra inferior — solo línea decorativa, sin texto DATA SYNC
+
+        surf.blit(self._scanlines, (0,0))
+        self._noise_overlay(surf)
+
+    # ── Capa 4: Título ────────────────────────────────────────────
+    def _layer_4_title(self, surf, fonts):
+        pulse = abs(math.sin(self._t * 1.6))
+
+        if self._logo_img:
+            lw, lh = self._logo_img.get_size()
+            # Glitch horizontal leve
+            ox = int(math.sin(self._t * 7.3) * 1.5) if self._glitch_on else 0
+            surf.blit(self._logo_img, (self.sw//2 - lw//2 + ox, 18))
+        else:
+            f_sub  = fonts["med"]
+            f_main = pygame.font.SysFont("consolas", 86, bold=True)
+
+            sub_txt  = "ESCAPANDO CON"
+            main_txt = "PEPIS"
+
+            sub_col  = (int(60+195*pulse), 255, int(60+80*pulse))
+            main_col = (int(0+30*pulse),   int(205+50*pulse), 255)
+
+            sw_ = f_sub.size(sub_txt)[0]
+            self._glow(surf, sub_txt, f_sub, sub_col,
+                       self.sw//2 - sw_//2, 28, r=6)
+
+            mw_ = f_main.size(main_txt)[0]
+            # Aberración cromática: blit rojo y azul desplazados
+            r_txt = f_main.render(main_txt, True, (255, 0,   60))
+            b_txt = f_main.render(main_txt, True, (0,   60,  255))
+            r_txt.set_alpha(80)
+            b_txt.set_alpha(80)
+            ox = 2 + int(math.sin(self._t*9)*1) if self._glitch_on else 2
+            surf.blit(r_txt, (self.sw//2 - mw_//2 - ox, 75))
+            surf.blit(b_txt, (self.sw//2 - mw_//2 + ox, 75))
+            self._glow(surf, main_txt, f_main, main_col,
+                       self.sw//2 - mw_//2, 75, r=10)
+
+        # Subtítulo GRUPO 1 PEPIS
+        f_sm = fonts["small"]
+        sub2 = "GRUPO 1 PEPIS"
+        sw2  = f_sm.size(sub2)[0]
+        ly   = 178     # subtítulo más arriba, separado del título
+        # Líneas laterales animadas
+        anim_len = int(60 + 50*abs(math.sin(self._t*1.1)))
+        mx       = self.sw//2 - sw2//2
+        for side in [-1, 1]:
+            sx1 = mx + side * 28 if side < 0 else mx + sw2 + 28
+            sx2 = sx1 - side * anim_len
+            pygame.draw.line(surf, (*self.CYAN, 140),
+                             (min(sx1,sx2), ly+10),
+                             (max(sx1,sx2), ly+10), 1)
+            # Tick en el extremo
+            pygame.draw.line(surf, self.NEON,
+                             (sx2, ly+6), (sx2, ly+14), 2)
+        self._glow(surf, sub2, f_sm, self.CYAN, mx, ly, r=3)
+
+    # ── Capa 5: Tarjetas holográficas ────────────────────────────
+    def _layer_5_cards(self, surf, fonts, unlocked, level_stars) -> list:
+        CW      = self.CARD_W
+        CH      = self.CARD_H
+        gap     = self.CARD_GAP
+        total_w = CW * 5 + gap * 4
+        sx0     = self.sw//2 - total_w//2
+        cy0     = self.CARDS_Y
+        rects   = []
+
+        f_lbl  = pygame.font.SysFont("consolas", 14, bold=True)
+        f_pct  = pygame.font.SysFont("consolas", 17, bold=True)
+
+        for i in range(5):
+            cx      = sx0 + i*(CW+gap)
+            locked  = i > unlocked
+            is_next = (i == unlocked) and not locked
+            stars   = level_stars[i] if i < len(level_stars) else 0
+            pct     = int(stars / 3 * 100)
+            bob     = int(math.sin(self._t*1.7 + i*0.9) * 3)
+
+            # ── Fondo del panel ───────────────────────────────────
+            panel = pygame.Surface((CW, CH), pygame.SRCALPHA)
+            panel.fill((0, 8, 18, 210))
+            # Gradiente sutil arriba más claro
+            for row in range(40):
+                a = int(30 * (1 - row/40))
+                pygame.draw.line(panel, (0, 30, 50, a), (2, row), (CW-2, row))
+            surf.blit(panel, (cx, cy0))
+
+            # ── Marco ─────────────────────────────────────────────
+            if self._card_frame:
+                cf = pygame.transform.scale(self._card_frame, (CW, CH))
+                surf.blit(cf, (cx, cy0))
+            else:
+                if locked:
+                    mcol = (35, 45, 70)
+                elif is_next:
+                    pa   = int(160 + 95*abs(math.sin(self._t*2.8)))
+                    mcol = (0, pa, int(pa*0.45))
+                else:
+                    mcol = self._pulse_col(self.CYAN, speed=0.9, lo=0.5)
+
+                self._hex_bracket(surf, cx, cy0, CW, CH, mcol, thickness=2)
+
+                # Líneas interiores decorativas (esquinas)
+                cut = 12
+                dim = (mcol[0]//3, mcol[1]//3, mcol[2]//3)
+                # Tick superior izquierdo
+                pygame.draw.line(surf, dim, (cx+cut+4, cy0+1), (cx+cut+18, cy0+1))
+                pygame.draw.line(surf, dim, (cx+1, cy0+cut+4), (cx+1, cy0+cut+18))
+                # Tick inferior derecho
+                pygame.draw.line(surf, dim, (cx+CW-cut-18, cy0+CH-1), (cx+CW-cut-4, cy0+CH-1))
+                pygame.draw.line(surf, dim, (cx+CW-1, cy0+CH-cut-18), (cx+CW-1, cy0+CH-cut-4))
+
+            # ── Label nivel ───────────────────────────────────────
+            lbl  = f"NIVEL {i+1}"
+            lcol = (55, 65, 90) if locked else self.GREEN
+            lw_  = f_lbl.size(lbl)[0]
+            self._glow(surf, lbl, f_lbl, lcol,
+                       cx + CW//2 - lw_//2, cy0 + 9, r=3)
+
+            # Línea separadora bajo el título
+            sep_col = (lcol[0]//2, lcol[1]//2, lcol[2]//2)
+            pygame.draw.line(surf, sep_col,
+                             (cx+12, cy0+28), (cx+CW-12, cy0+28), 1)
+
+            # ── Holograma circular bajo Pepis ─────────────────────
+            holo_cy = cy0 + 38 + 195 + 6    # base del sprite
+            if self._holo_ring:
+                hr  = self._holo_ring
+                hrw = hr.get_width()
+                pulse_a = int(120 + 80*abs(math.sin(self._t*1.3+i*0.5)))
+                hr_copy = hr.copy()
+                hr_copy.set_alpha(pulse_a if not locked else 40)
+                surf.blit(hr_copy, (cx + CW//2 - hrw//2, holo_cy - 8))
+            else:
+                # Anillo holográfico dibujado
+                for ring_r, ring_a_base in [(62, 55), (48, 40), (35, 28)]:
+                    ra  = int(ring_a_base * abs(math.sin(self._t*1.1+i*0.6)))
+                    col_ring = self.CYAN if not locked else (30, 40, 60)
+                    r_s = pygame.Surface((ring_r*2+4, 18), pygame.SRCALPHA)
+                    pygame.draw.ellipse(r_s, (*col_ring, ra),
+                                        (0, 0, ring_r*2+4, 18))
+                    surf.blit(r_s, (cx + CW//2 - ring_r - 2, holo_cy - 6))
+
+            # ── Sprite Pepis ──────────────────────────────────────
+            sprite_y = cy0 + 36
+            if self._pepis_card:
+                pw_, ph_ = self._pepis_card.get_size()
+                img = self._pepis_card.copy()
+                if locked:
+                    img.set_alpha(45)       # muy oscuro — bloqueado
+                elif pct < 100:
+                    img.set_alpha(130)      # semisombreado — incompleto
+                # pct == 100 → sin alpha, sprite brillante
+                surf.blit(img, (cx + CW//2 - pw_//2, sprite_y + bob))
+            else:
+                ph_w, ph_h = 120, 165
+                ph_col = (18, 35, 30) if locked else (22, 50, 40) if pct < 100 else (30, 65, 55)
+                ph_s   = make_placeholder(ph_w, ph_h, ph_col, f"L{i+1}")
+                if locked:      ph_s.set_alpha(45)
+                elif pct < 100: ph_s.set_alpha(130)
+                surf.blit(ph_s, (cx + CW//2 - ph_w//2, sprite_y + bob))
+
+            # Candado central
+            if locked:
+                fl = pygame.font.SysFont("consolas", 32)
+                lt = fl.render("🔒", True, (50, 58, 85))
+                surf.blit(lt, (cx + CW//2 - lt.get_width()//2,
+                               cy0 + CH//2 - lt.get_height()//2))
+
+            # ── Barra de progreso ─────────────────────────────────
+            bx_  = cx + 14
+            by_  = cy0 + CH - 50
+            bw_  = CW - 28
+            bh_  = 10
+            fil_ = int(bw_ * pct / 100)
+
+            pygame.draw.rect(surf, (8, 22, 16), (bx_, by_, bw_, bh_), border_radius=5)
+            pygame.draw.rect(surf, (18, 45, 30), (bx_, by_, bw_, bh_), 1, border_radius=5)
+
+            if not locked and fil_ > 0:
+                bc   = self.GREEN if pct >= 100 else self.GOLD
+                pygame.draw.rect(surf, bc, (bx_, by_, fil_, bh_), border_radius=5)
+                # Brillo móvil sobre la barra
+                shine_x = int(bx_ + (fil_//2) + (fil_//2)*math.sin(self._t*2+i))
+                sh_s = pygame.Surface((20, bh_), pygame.SRCALPHA)
+                sh_s.fill((*bc, 90))
+                surf.blit(sh_s, (min(shine_x, bx_+fil_-20), by_))
+
+            # Porcentaje
+            pstr = f"{pct}%" if not locked else "—"
+            pcol = (45, 55, 75) if locked else (self.GREEN if pct>=100 else self.GOLD)
+            pw__ = f_pct.size(pstr)[0]
+            self._glow(surf, pstr, f_pct, pcol,
+                       cx + CW//2 - pw__//2, by_ + 13, r=3)
+
+            # Pulso en tarjeta activa
+            if is_next and not self._card_frame:
+                pa2  = int(170 + 85*abs(math.sin(self._t*2.6)))
+                self._hex_bracket(surf, cx, cy0, CW, CH,
+                                  (0, pa2, int(pa2*0.45)), thickness=3)
+
+            rects.append((cx, cy0, CW, CH))
+
+        return rects
+
+    # ── Capa 6: Glow ambiental ────────────────────────────────────
+    def _layer_6_glow(self, surf):
+        """Halos de luz ambiental en la zona de tarjetas."""
+        for color, cx_, intensity in [
+            (self.CYAN, self.sw//4,       35),
+            (self.MAG,  self.sw*3//4,     30),
+            (self.NEON, self.sw//2,       25),
+        ]:
+            pulse = abs(math.sin(self._t * 0.8 + cx_))
+            r     = 160
+            a     = int(intensity * pulse)
+            gl    = pygame.Surface((r*2, r*2), pygame.SRCALPHA)
+            pygame.draw.circle(gl, (*color, a), (r, r), r)
+            surf.blit(gl, (cx_ - r, self.CARDS_Y + self.CARD_H//2 - r))
+
+    # ── Capa 7: Texto y controles ─────────────────────────────────
+    def _layer_7_controls(self, surf, fonts):
+        """
+        Barra inferior de controles — dos filas:
+          Fila 1 (centrada): [🖱] CLIC EN NIVEL | ESC PARA SALIR
+          Fila 2 (centrada): [←→] MOVERSE  [ESPACIO] SALTAR (MANTENER=MÁS ALTO)  [☠] PISA ENEMIGOS
+        Estilo: keycaps con borde cyan, fondo oscuro, glow suave.
+        """
+        ft     = pygame.font.SysFont("consolas", 13, bold=True)
+        ft_act = pygame.font.SysFont("consolas", 13)
+
+        # Separador horizontal encima de toda la zona inferior
+        sep_y = self.sh - 88    # separador más arriba = más espacio
+        pygame.draw.line(surf, (*self.CYAN, 60), (0, sep_y), (self.sw, sep_y), 1)
+
+        # ── FILA 1: botón guía ────────────────────────────────────
+        guide   = "CLIC EN NIVEL  |  ESC PARA SALIR"
+        gw_txt  = ft.size(guide)[0]
+        ico_w   = 22
+        padding = 20
+        gbw     = ico_w + 10 + gw_txt + padding * 2
+        gbh     = 28
+        gbx     = self.sw // 2 - gbw // 2
+        gby     = self.sh - 84    # fila 1 bien separada del borde
+
+        # Fondo del botón
+        gb_s = pygame.Surface((gbw, gbh), pygame.SRCALPHA)
+        gb_s.fill((0, 10, 20, 215))
+        pa   = int(160 + 95 * abs(math.sin(self._t * 1.4)))
+        pygame.draw.rect(gb_s, (*self.CYAN, pa), (0, 0, gbw, gbh),
+                         1, border_radius=14)
+        surf.blit(gb_s, (gbx, gby))
+
+        # Ícono de mouse dibujado (si no hay asset externo)
+        if self._ico_move:   # reutilizamos un slot — si tienes icon_mouse.png cámbialo
+            ico_s = pygame.transform.scale(self._ico_move, (ico_w, ico_w))
+            surf.blit(ico_s, (gbx + padding, gby + (gbh - ico_w) // 2))
+        else:
+            # Mouse pixel-art sencillo
+            mx_ = gbx + padding
+            my_ = gby + (gbh - ico_w) // 2
+            pygame.draw.rect(surf, self.CYAN, (mx_, my_, ico_w, ico_w), 1, border_radius=4)
+            pygame.draw.line(surf, self.CYAN,
+                             (mx_ + ico_w//2, my_),
+                             (mx_ + ico_w//2, my_ + ico_w//2 - 2), 1)
+
+        # Texto
+        tx_ = gbx + padding + ico_w + 10
+        ty_ = gby + (gbh - ft.size(guide)[1]) // 2
+        self._glow(surf, guide, ft, self.CYAN, tx_, ty_, r=2)
+
+        # ── FILA 2: keycaps de controles ─────────────────────────
+        ctrl_data = [
+            (self._ico_move,  "← →",    "MOVERSE"),
+            (self._ico_jump,  "ESPACIO", "SALTAR (MANTENER=MÁS ALTO)"),
+            (self._ico_skull, "☠",       "PISA ENEMIGOS"),
+        ]
+
+        # Calcular ancho total para centrar
+        kh_ = 22
+        sep_gap = 20   # espacio entre grupos
+        items_w = 0
+        for _, key, action in ctrl_data:
+            items_w += ft.size(key)[0] + 16       # keycap
+            items_w += 8                           # gap keycap→acción
+            items_w += ft_act.size(action)[0]
+            items_w += sep_gap
+
+        cx_c = self.sw // 2 - items_w // 2
+        cy_c = self.sh - 50     # fila de keycaps — bien centrada en la zona inferior
+
+        for idx, (icon, key, action) in enumerate(ctrl_data):
+            # Keycap
+            kw_  = ft.size(key)[0] + 16
+            ks   = pygame.Surface((kw_, kh_), pygame.SRCALPHA)
+            ks.fill((0, 10, 20, 210))
+            pygame.draw.rect(ks, (*self.CYAN, 220), (0, 0, kw_, kh_),
+                             1, border_radius=4)
+            # Línea inferior simulando profundidad del keycap
+            pygame.draw.line(ks, (*self.CYAN, 55),
+                             (2, kh_-1), (kw_-2, kh_-1), 1)
+            surf.blit(ks, (cx_c, cy_c - kh_ // 2))
+            kw2 = ft.size(key)[0]
+            self._glow(surf, key, ft, self.CYAN,
+                       cx_c + (kw_ - kw2) // 2,
+                       cy_c - kh_ // 2 + (kh_ - ft.size(key)[1]) // 2,
+                       r=2)
+            cx_c += kw_ + 8
+
+            # Texto de acción
+            aw_ = ft_act.size(action)[0]
+            shadow_text(surf, action, ft_act, (130, 200, 185),
+                        cx_c, cy_c - ft_act.size(action)[1] // 2)
+            cx_c += aw_ + sep_gap
+
+    # ── Capa 8: Efectos finales ───────────────────────────────────
+    def _layer_8_effects(self, surf):
+        """Viñeta, glitch, hologram flicker."""
+        surf.blit(self._vignette, (0, 0))
+
+        # Glitch: línea horizontal aleatoria cada ~3s
+        self._glitch_timer += 1/60
+        if self._glitch_timer > 3.2:
+            self._glitch_timer = 0.0
+            self._glitch_on    = True
+        if self._glitch_on:
+            gy_ = random.randint(50, self.sh - 50)
+            gs_ = pygame.Surface((self.sw, 3), pygame.SRCALPHA)
+            gs_.fill((0, 255, 200, 60))
+            surf.blit(gs_, (0, gy_))
+            if random.random() > 0.3:
+                self._glitch_on = False
+
+        # Hologram flicker: leve reducción de alpha en toda la pantalla
+        if abs(math.sin(self._t * 18)) > 0.96:
+            fl_ = pygame.Surface((self.sw, self.sh), pygame.SRCALPHA)
+            fl_.fill((0, 0, 0, 22))
+            surf.blit(fl_, (0, 0))
+
+    # ── Entry point ───────────────────────────────────────────────
+    def draw(self, surface: pygame.Surface, fonts: dict,
+             unlocked: int, level_stars: list) -> list:
+        """
+        Dibuja las 8 capas y devuelve [(x,y,w,h)×5] para click detection.
+        """
+        self._t = pygame.time.get_ticks() / 1000.0
+
+        self._layer_1_background(surface)
+        self._layer_2_fog_particles(surface)
+        self._layer_3_hud_overlay(surface)
+        self._layer_4_title(surface, fonts)
+        self._layer_6_glow(surface)                              # glow ANTES de tarjetas
+        rects = self._layer_5_cards(surface, fonts, unlocked, level_stars)
+        self._layer_7_controls(surface, fonts)
+        self._layer_8_effects(surface)
+
+        return rects
+
+    # ══ GUÍA DE ASSETS ════════════════════════════════════════════
+    # Carpeta:  assets/menu/  (junto a main.py)
+    #
+    # bg.png          1000×600   Ciudad cyberpunk nocturna muy oscura, neón cyan/mag
+    # fog.png         1000×600   PNG semitransparente, niebla/humo difuso
+    # hud_overlay.png 1000×600   PNG transparente, circuitos HUD en bordes
+    # logo.png         700×170   PNG transparente, "ESCAPANDO CON PEPIS" en neón
+    # card_frame.png   170×298   PNG transparente, marco holográfico hexagonal
+    # pepis.png        150×195   PNG transparente, Pepis de frente sin fondo
+    # holo_ring.png    160×40    PNG transparente, anillo holográfico difuso cyan
+    # icon_move.png     38×38    PNG transparente, flecha doble
+    # icon_jump.png     38×38    PNG transparente, flecha hacia arriba
+    # icon_skull.png    38×38    PNG transparente, calavera neón
+    # noise.png       1000×600   PNG gris con ruido cinematográfico (alpha 50%)
+
+
+def screen_menu(surface, fonts, unlocked, level_stars):
+    """Stub — el game loop usa self.menu_screen.draw() directamente."""
+    return []
 
     def __init__(self, sw: int, sh: int, base_dir: str):
         self.sw      = sw
