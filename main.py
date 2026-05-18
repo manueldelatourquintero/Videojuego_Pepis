@@ -13,25 +13,16 @@ from tilemap import make_tilemap
 #  Usado por Player Y Enemy — misma función, mismas reglas.
 # ══════════════════════════════════════════════
 def move_and_collide(entity, vx, vy, solid_tiles):
-    """
-    Mueve 'entity' por (vx, vy) resolviendo colisiones AABB con solid_tiles.
-    Separa ejes X e Y para evitar clipping diagonal.
 
-    Hitbox = sprite contraído MX píxeles a cada lado y MY desde arriba.
-    La resolución coloca la entidad exactamente en el borde del tile,
-    sin offset residual → sin efecto pegajoso ni jitter.
+    uribe = " uribe paraco hpta"
+    print(uribe)
 
-    Devuelve (hit_wall_x, hit_wall_y).
-    """
-    MX = 4   # margen lateral (px a cada lado)
-    MY = 2   # margen superior (px desde arriba)
+    MX = 4   
+    MY = 2   
 
     hit_wall_x = False
     hit_wall_y = False
 
-    # ── Eje X ────────────────────────────────────────────────────
-    # Aplica movimiento horizontal y resuelve contra cada tile.
-    # El hitbox horizontal ocupa [wx+MX .. wx+W-MX] × [wy+MY .. wy+H].
     entity.wx += vx
     if vx != 0 and solid_tiles:
         hb = pygame.Rect(int(entity.wx) + MX, int(entity.wy) + MY,
@@ -76,9 +67,7 @@ def move_and_collide(entity, vx, vy, solid_tiles):
 
     return hit_wall_x, hit_wall_y
 
-# ══════════════════════════════════════════════
-#  CONSTANTES GLOBALES
-# ══════════════════════════════════════════════
+#constantes del videojuego
 SW, SH          = 1000, 600
 FPS             = 60
 TITLE           = "ESCAPANDO CON PEPIS"
@@ -97,7 +86,7 @@ HIT_DAMAGE      = 10
 IFRAMES         = 90
 
 FB_SPEED        = 5.5
-FB_COOLDOWN     = 70    # era 130 — reducido para que el enemigo dispare más rápido
+FB_COOLDOWN     = 60 #velocidad disparo enemigo
 
 ENEMY_H         = 54
 ENEMY_W         = 52
@@ -1666,10 +1655,10 @@ class MenuScreen:
     """
 
     # ── Layout ────────────────────────────────────────────────────
-    CARD_W    = 170
-    CARD_H    = 268    # reducido: 298→268 (30px menos)
-    CARD_GAP  = 13
-    CARDS_Y   = 198    # un poco más arriba para dar aire abajo
+    CARD_W    = 148    # más compactas y elegantes
+    CARD_H    = 242    # más cortas, menos bloque gigante
+    CARD_GAP  = 20     # más separación = más aire visual
+    CARDS_Y   = 196
 
     # ── Paleta neon ───────────────────────────────────────────────
     CYAN   = (  0, 210, 255)
@@ -1856,25 +1845,35 @@ class MenuScreen:
             p.update(self.sw, self.sh)
             p.draw(surf)
 
-    # ── Capa 3: HUD overlay (circuitos, líneas) ───────────────────
+    # ── Capa 3: HUD overlay ───────────────────────────────────────
     def _layer_3_hud_overlay(self, surf):
         if self._hud_img:
-            surf.blit(self._hud_img, (0,0))
+            surf.blit(self._hud_img, (0, 0))
 
-        # Barras superior e inferior siempre presentes
-        for bar_y, flip in [(0, False), (self.sh - 32, True)]:
-            b = pygame.Surface((self.sw, 32), pygame.SRCALPHA)
-            b.fill((0, 8, 18, 220))
-            line_y = 31 if not flip else 0
-            pygame.draw.line(b, self.CYAN, (0, line_y), (self.sw, line_y), 2)
-            # Detalle: pequeños ticks animados en la línea
-            tick_x = int((self._t * 120) % self.sw)
-            pygame.draw.line(b, self.NEON, (tick_x, line_y-3), (tick_x, line_y+3), 2)
-            surf.blit(b, (0, bar_y))
+        # Esquinas superiores decorativas (sin línea cruzando la pantalla)
+        c = 40   # tamaño del corte de esquina
+        col = (*self.CYAN, 160)
+        # Superior izquierda
+        pygame.draw.line(surf, col, (0, 0),  (c, 0),  2)
+        pygame.draw.line(surf, col, (0, 0),  (0, c),  2)
+        pygame.draw.line(surf, col, (c+8, 0),(c+20,0),2)
+        # Superior derecha
+        pygame.draw.line(surf, col, (self.sw, 0), (self.sw-c, 0), 2)
+        pygame.draw.line(surf, col, (self.sw, 0), (self.sw,   c), 2)
+        pygame.draw.line(surf, col, (self.sw-c-8, 0),(self.sw-c-20, 0), 2)
+        # Inferior izquierda
+        pygame.draw.line(surf, col, (0, self.sh),   (c, self.sh),   2)
+        pygame.draw.line(surf, col, (0, self.sh),   (0, self.sh-c), 2)
+        # Inferior derecha
+        pygame.draw.line(surf, col, (self.sw, self.sh), (self.sw-c, self.sh),   2)
+        pygame.draw.line(surf, col, (self.sw, self.sh), (self.sw,   self.sh-c), 2)
 
-        # Barra inferior — solo línea decorativa, sin texto DATA SYNC
+        # Tick animado pequeño (solo en esquina superior — sutil)
+        tick_x = int((self._t * 60) % (c - 4)) + 2
+        pygame.draw.line(surf, (*self.NEON, 180),
+                         (tick_x, 0), (tick_x + 4, 0), 2)
 
-        surf.blit(self._scanlines, (0,0))
+        surf.blit(self._scanlines, (0, 0))
         self._noise_overlay(surf)
 
     # ── Capa 4: Título ────────────────────────────────────────────
@@ -1912,23 +1911,16 @@ class MenuScreen:
             self._glow(surf, main_txt, f_main, main_col,
                        self.sw//2 - mw_//2, 75, r=10)
 
-        # Subtítulo GRUPO 1 PEPIS
+        # Subtítulo GRUPO 1 PEPIS — sin líneas que crucen la pantalla
         f_sm = fonts["small"]
         sub2 = "GRUPO 1 PEPIS"
         sw2  = f_sm.size(sub2)[0]
-        ly   = 178     # subtítulo más arriba, separado del título
-        # Líneas laterales animadas
-        anim_len = int(60 + 50*abs(math.sin(self._t*1.1)))
-        mx       = self.sw//2 - sw2//2
-        for side in [-1, 1]:
-            sx1 = mx + side * 28 if side < 0 else mx + sw2 + 28
-            sx2 = sx1 - side * anim_len
-            pygame.draw.line(surf, (*self.CYAN, 140),
-                             (min(sx1,sx2), ly+10),
-                             (max(sx1,sx2), ly+10), 1)
-            # Tick en el extremo
-            pygame.draw.line(surf, self.NEON,
-                             (sx2, ly+6), (sx2, ly+14), 2)
+        ly   = 178
+        mx   = self.sw//2 - sw2//2
+        # Solo dos pequeños ticks a los lados (no línea larga)
+        tk_len = int(18 + 8*abs(math.sin(self._t*1.1)))
+        pygame.draw.line(surf, (*self.CYAN, 160), (mx - 30, ly+10), (mx - 30 + tk_len, ly+10), 1)
+        pygame.draw.line(surf, (*self.CYAN, 160), (mx + sw2 + 30 - tk_len, ly+10), (mx + sw2 + 30, ly+10), 1)
         self._glow(surf, sub2, f_sm, self.CYAN, mx, ly, r=3)
 
     # ── Capa 5: Tarjetas holográficas ────────────────────────────
@@ -1992,11 +1984,7 @@ class MenuScreen:
             lw_  = f_lbl.size(lbl)[0]
             self._glow(surf, lbl, f_lbl, lcol,
                        cx + CW//2 - lw_//2, cy0 + 9, r=3)
-
-            # Línea separadora bajo el título
-            sep_col = (lcol[0]//2, lcol[1]//2, lcol[2]//2)
-            pygame.draw.line(surf, sep_col,
-                             (cx+12, cy0+28), (cx+CW-12, cy0+28), 1)
+            # Sin línea separadora — limpio y cinematográfico
 
             # ── Holograma circular bajo Pepis ─────────────────────
             holo_cy = cy0 + 38 + 195 + 6    # base del sprite
@@ -2097,97 +2085,81 @@ class MenuScreen:
     # ── Capa 7: Texto y controles ─────────────────────────────────
     def _layer_7_controls(self, surf, fonts):
         """
-        Barra inferior de controles — dos filas:
-          Fila 1 (centrada): [🖱] CLIC EN NIVEL | ESC PARA SALIR
-          Fila 2 (centrada): [←→] MOVERSE  [ESPACIO] SALTAR (MANTENER=MÁS ALTO)  [☠] PISA ENEMIGOS
-        Estilo: keycaps con borde cyan, fondo oscuro, glow suave.
+        Zona inferior flotante — sin líneas cruzando pantalla.
+        Fila 1: panel holográfico redondeado con ícono mouse + texto.
+        Fila 2: keycaps grandes con glow, bien espaciados.
         """
-        ft     = pygame.font.SysFont("consolas", 13, bold=True)
-        ft_act = pygame.font.SysFont("consolas", 13)
+        ft_key = pygame.font.SysFont("consolas", 17, bold=True)   # más grande
+        ft_act = pygame.font.SysFont("consolas", 16, bold=True)   # más grande y bold
 
-        # Separador horizontal encima de toda la zona inferior
-        sep_y = self.sh - 88    # separador más arriba = más espacio
-        pygame.draw.line(surf, (*self.CYAN, 60), (0, sep_y), (self.sw, sep_y), 1)
-
-        # ── FILA 1: botón guía ────────────────────────────────────
+        # ── Fila 1: botón holográfico "CLIC EN NIVEL" ─────────────
         guide   = "CLIC EN NIVEL  |  ESC PARA SALIR"
-        gw_txt  = ft.size(guide)[0]
-        ico_w   = 22
-        padding = 20
-        gbw     = ico_w + 10 + gw_txt + padding * 2
-        gbh     = 28
+        gw_txt  = ft_key.size(guide)[0]
+        ico_w   = 20
+        padding = 22
+        gbw     = ico_w + 8 + gw_txt + padding * 2
+        gbh     = 30
         gbx     = self.sw // 2 - gbw // 2
-        gby     = self.sh - 84    # fila 1 bien separada del borde
+        gby     = self.sh - 108   # más arriba
 
-        # Fondo del botón
         gb_s = pygame.Surface((gbw, gbh), pygame.SRCALPHA)
-        gb_s.fill((0, 10, 20, 215))
-        pa   = int(160 + 95 * abs(math.sin(self._t * 1.4)))
+        gb_s.fill((0, 8, 18, 200))
+        pa = int(150 + 105 * abs(math.sin(self._t * 1.4)))
         pygame.draw.rect(gb_s, (*self.CYAN, pa), (0, 0, gbw, gbh),
-                         1, border_radius=14)
+                         1, border_radius=15)
         surf.blit(gb_s, (gbx, gby))
 
-        # Ícono de mouse dibujado (si no hay asset externo)
-        if self._ico_move:   # reutilizamos un slot — si tienes icon_mouse.png cámbialo
-            ico_s = pygame.transform.scale(self._ico_move, (ico_w, ico_w))
-            surf.blit(ico_s, (gbx + padding, gby + (gbh - ico_w) // 2))
-        else:
-            # Mouse pixel-art sencillo
-            mx_ = gbx + padding
-            my_ = gby + (gbh - ico_w) // 2
-            pygame.draw.rect(surf, self.CYAN, (mx_, my_, ico_w, ico_w), 1, border_radius=4)
-            pygame.draw.line(surf, self.CYAN,
-                             (mx_ + ico_w//2, my_),
-                             (mx_ + ico_w//2, my_ + ico_w//2 - 2), 1)
+        # Mouse icon
+        mx_ = gbx + padding
+        my_ = gby + (gbh - ico_w) // 2
+        pygame.draw.rect(surf, self.CYAN, (mx_, my_, ico_w, ico_w),
+                         1, border_radius=4)
+        pygame.draw.line(surf, self.CYAN,
+                         (mx_ + ico_w//2, my_),
+                         (mx_ + ico_w//2, my_ + ico_w//2 - 2), 1)
 
-        # Texto
-        tx_ = gbx + padding + ico_w + 10
-        ty_ = gby + (gbh - ft.size(guide)[1]) // 2
-        self._glow(surf, guide, ft, self.CYAN, tx_, ty_, r=2)
+        self._glow(surf, guide, ft_key, self.CYAN,
+                   gbx + padding + ico_w + 8,
+                   gby + (gbh - ft_key.size(guide)[1]) // 2, r=2)
 
-        # ── FILA 2: keycaps de controles ─────────────────────────
+        # ── Fila 2: keycaps grandes y espaciados ──────────────────
         ctrl_data = [
             (self._ico_move,  "← →",    "MOVERSE"),
             (self._ico_jump,  "ESPACIO", "SALTAR (MANTENER=MÁS ALTO)"),
             (self._ico_skull, "☠",       "PISA ENEMIGOS"),
         ]
+        KH = 30
+        SEP = 30
 
         # Calcular ancho total para centrar
-        kh_ = 22
-        sep_gap = 20   # espacio entre grupos
-        items_w = 0
+        total_w = 0
         for _, key, action in ctrl_data:
-            items_w += ft.size(key)[0] + 16       # keycap
-            items_w += 8                           # gap keycap→acción
-            items_w += ft_act.size(action)[0]
-            items_w += sep_gap
+            total_w += ft_key.size(key)[0] + 18 + 8 + ft_act.size(action)[0] + SEP
+        cx_c = self.sw // 2 - total_w // 2
+        cy_c = self.sh - 56
 
-        cx_c = self.sw // 2 - items_w // 2
-        cy_c = self.sh - 50     # fila de keycaps — bien centrada en la zona inferior
-
-        for idx, (icon, key, action) in enumerate(ctrl_data):
-            # Keycap
-            kw_  = ft.size(key)[0] + 16
-            ks   = pygame.Surface((kw_, kh_), pygame.SRCALPHA)
-            ks.fill((0, 10, 20, 210))
-            pygame.draw.rect(ks, (*self.CYAN, 220), (0, 0, kw_, kh_),
-                             1, border_radius=4)
-            # Línea inferior simulando profundidad del keycap
-            pygame.draw.line(ks, (*self.CYAN, 55),
-                             (2, kh_-1), (kw_-2, kh_-1), 1)
-            surf.blit(ks, (cx_c, cy_c - kh_ // 2))
-            kw2 = ft.size(key)[0]
-            self._glow(surf, key, ft, self.CYAN,
+        for icon, key, action in ctrl_data:
+            kw_ = ft_key.size(key)[0] + 18
+            # Keycap con glow
+            ks  = pygame.Surface((kw_, KH), pygame.SRCALPHA)
+            ks.fill((0, 12, 24, 215))
+            kpa = int(180 + 75 * abs(math.sin(self._t * 1.6)))
+            pygame.draw.rect(ks, (*self.CYAN, kpa), (0, 0, kw_, KH),
+                             1, border_radius=5)
+            # Detalle inferior (efecto profundidad)
+            pygame.draw.rect(ks, (*self.NEON, 40), (1, KH-3, kw_-2, 2),
+                             border_radius=2)
+            surf.blit(ks, (cx_c, cy_c - KH // 2))
+            kw2 = ft_key.size(key)[0]
+            self._glow(surf, key, ft_key, self.CYAN,
                        cx_c + (kw_ - kw2) // 2,
-                       cy_c - kh_ // 2 + (kh_ - ft.size(key)[1]) // 2,
-                       r=2)
+                       cy_c - ft_key.size(key)[1] // 2, r=3)
             cx_c += kw_ + 8
 
-            # Texto de acción
-            aw_ = ft_act.size(action)[0]
-            shadow_text(surf, action, ft_act, (130, 200, 185),
+            # Acción
+            shadow_text(surf, action, ft_act, (140, 210, 195),
                         cx_c, cy_c - ft_act.size(action)[1] // 2)
-            cx_c += aw_ + sep_gap
+            cx_c += ft_act.size(action)[0] + SEP
 
     # ── Capa 8: Efectos finales ───────────────────────────────────
     def _layer_8_effects(self, surf):
