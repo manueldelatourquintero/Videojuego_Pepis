@@ -13,16 +13,25 @@ from tilemap import make_tilemap
 #  Usado por Player Y Enemy — misma función, mismas reglas.
 # ══════════════════════════════════════════════
 def move_and_collide(entity, vx, vy, solid_tiles):
+    """
+    Mueve 'entity' por (vx, vy) resolviendo colisiones AABB con solid_tiles.
+    Separa ejes X e Y para evitar clipping diagonal.
 
-    uribe = " uribe paraco hpta"
-    print(uribe)
+    Hitbox = sprite contraído MX píxeles a cada lado y MY desde arriba.
+    La resolución coloca la entidad exactamente en el borde del tile,
+    sin offset residual → sin efecto pegajoso ni jitter.
 
-    MX = 4   
-    MY = 2   
+    Devuelve (hit_wall_x, hit_wall_y).
+    """
+    MX = 4   # margen lateral (px a cada lado)
+    MY = 2   # margen superior (px desde arriba)
 
     hit_wall_x = False
     hit_wall_y = False
 
+    # ── Eje X ────────────────────────────────────────────────────
+    # Aplica movimiento horizontal y resuelve contra cada tile.
+    # El hitbox horizontal ocupa [wx+MX .. wx+W-MX] × [wy+MY .. wy+H].
     entity.wx += vx
     if vx != 0 and solid_tiles:
         hb = pygame.Rect(int(entity.wx) + MX, int(entity.wy) + MY,
@@ -67,10 +76,12 @@ def move_and_collide(entity, vx, vy, solid_tiles):
 
     return hit_wall_x, hit_wall_y
 
-#constantes del videojuego
+# ══════════════════════════════════════════════
+#  CONSTANTES GLOBALES
+# ══════════════════════════════════════════════
 SW, SH          = 1000, 600
 FPS             = 60
-TITLE           = "ESCAPANDO CON PEPIS"
+TITLE           = "El Pepis v3 — Ingeniería de Sistemas"
 
 GRAVITY         = 0.55
 JUMP_V          = -15.0
@@ -86,7 +97,7 @@ HIT_DAMAGE      = 10
 IFRAMES         = 90
 
 FB_SPEED        = 5.5
-FB_COOLDOWN     = 60 #velocidad disparo enemigo
+FB_COOLDOWN     = 70    # era 130 — reducido para que el enemigo dispare más rápido
 
 ENEMY_H         = 54
 ENEMY_W         = 52
@@ -1063,60 +1074,63 @@ class Player:
         return self.wx + self.W / 2, self.wy + self.H / 2
 
 
-# ══════════════════════════════════════════════
-#  DATOS DE NIVELES
-# ══════════════════════════════════════════════
+#aqui estan los quices de los niveles de los videojuegos
 QUIZZES = [
-    {
-        "q":    "¿Qué significa 'PEPIS' en el contexto del juego?",
-        "opts": [
-            "Programa Educativo Para Ingenieros de Sistemas",
-            "Personaje Épico Pixelado de Ingeniería de Sistemas",
-            "Proyecto Estudiantil de Programación e Ingeniería",
-            "Pepis no significa nada, es solo un nombre",
-        ],
-        "ans": 1,
-        "tip": "Pepis es la mascota pixel-art de Ingeniería de Sistemas.",
-    },
-    {
-        "q":    "¿Qué tecnología usa el juego El Pepis?",
-        "opts": [
-            "Unity + C#",
-            "Godot + GDScript",
-            "Python + Pygame",
-            "JavaScript + Phaser",
-        ],
-        "ans": 2,
-        "tip": "El juego está construido 100% en Python usando Pygame.",
-    },
-    {
-        "q":    "¿Cuántos saltos puede hacer Pepis?",
-        "opts": [
-            "Solo 1 salto",
-            "3 saltos (triple jump)",
-            "2 saltos (doble salto)",
-            "Salto infinito",
-        ],
-        "ans": 2,
-        "tip": "Pepis tiene doble salto: el segundo es algo menos potente.",
-    },
-    {
-        "q":    "¿Qué hace el jugador al saltar sobre un enemigo?",
-        "opts": [
-            "Nada, rebota",
-            "Pierde HP",
-            "Elimina al enemigo y rebota",
-            "Teletransporta al inicio",
-        ],
-        "ans": 2,
-        "tip": "Como en Mario: pisar enemigos los elimina y otorga puntos.",
-    },
-    {
-        "q":    "¿Cuánto daño hace cada bola de fuego?",
-        "opts": ["5 HP", "10 HP", "25 HP", "50 HP"],
-        "ans": 1,
-        "tip": "Cada proyectil quita 10 HP al jugador.",
-    },
+{
+    "q": "¿Cuál es la función principal del PEP en Ingeniería de Sistemas?",
+    "opts": [
+        "Regular únicamente procesos administrativos.",
+        "Orientar proyectos, estrategias y metas del programa.",
+        "Controlar el reglamento disciplinario estudiantil.",
+        "Diseñar actividades de bienestar universitario."
+    ],
+    "ans": 1,
+    "tip": "El PEP funciona como guía estratégica del programa."
+},
+{
+    "q": "¿Qué metodologías innovadoras promueve el PEP?",
+    "opts": [
+        "Aprendizaje repetitivo y memorístico.",
+        "Gamificación y aprendizaje basado en proyectos.",
+        "Clases exclusivamente magistrales.",
+        "Evaluaciones sin actividades prácticas."
+    ],
+    "ans": 1,
+    "tip": "El programa impulsa metodologías activas de aprendizaje."
+},
+{
+    "q": "¿Qué tecnologías emergentes busca incorporar el programa?",
+    "opts": [
+        "Máquinas analógicas y fax.",
+        "Inteligencia artificial y blockchain.",
+        "Equipos mecánicos tradicionales.",
+        "Herramientas sin conexión digital."
+    ],
+    "ans": 1,
+    "tip": "El PEP integra tecnologías modernas en la formación."
+},
+{
+    "q": "¿Qué objetivo tiene la relación con empresas y organizaciones?",
+    "opts": [
+        "Reducir las prácticas profesionales.",
+        "Fortalecer la empleabilidad y el emprendimiento.",
+        "Eliminar proyectos tecnológicos externos.",
+        "Limitar el contacto con el sector productivo."
+    ],
+    "ans": 1,
+    "tip": "Los convenios ayudan a mejorar la experiencia laboral."
+},
+{
+    "q": "¿Qué plantea la visión del programa para el año 2027?",
+    "opts": [
+        "Reducir el uso de tecnología educativa.",
+        "Ser líder con altos niveles de calidad académica.",
+        "Eliminar la flexibilidad curricular.",
+        "Enfocarse únicamente en el contexto regional."
+    ],
+    "ans": 1,
+    "tip": "La visión resalta la calidad y el liderazgo académico."
+}
 ]
 
 LEVEL_DEFS = [
