@@ -1074,63 +1074,60 @@ class Player:
         return self.wx + self.W / 2, self.wy + self.H / 2
 
 
-#aqui estan los quices de los niveles de los videojuegos
+# ══════════════════════════════════════════════
+#  DATOS DE NIVELES
+# ══════════════════════════════════════════════
 QUIZZES = [
-{
-    "q": "¿Cuál es la función principal del PEP en Ingeniería de Sistemas?",
-    "opts": [
-        "Regular únicamente procesos administrativos.",
-        "Orientar proyectos, estrategias y metas del programa.",
-        "Controlar el reglamento disciplinario estudiantil.",
-        "Diseñar actividades de bienestar universitario."
-    ],
-    "ans": 1,
-    "tip": "El PEP funciona como guía estratégica del programa."
-},
-{
-    "q": "¿Qué metodologías innovadoras promueve el PEP?",
-    "opts": [
-        "Aprendizaje repetitivo y memorístico.",
-        "Gamificación y aprendizaje basado en proyectos.",
-        "Clases exclusivamente magistrales.",
-        "Evaluaciones sin actividades prácticas."
-    ],
-    "ans": 1,
-    "tip": "El programa impulsa metodologías activas de aprendizaje."
-},
-{
-    "q": "¿Qué tecnologías emergentes busca incorporar el programa?",
-    "opts": [
-        "Máquinas analógicas y fax.",
-        "Inteligencia artificial y blockchain.",
-        "Equipos mecánicos tradicionales.",
-        "Herramientas sin conexión digital."
-    ],
-    "ans": 1,
-    "tip": "El PEP integra tecnologías modernas en la formación."
-},
-{
-    "q": "¿Qué objetivo tiene la relación con empresas y organizaciones?",
-    "opts": [
-        "Reducir las prácticas profesionales.",
-        "Fortalecer la empleabilidad y el emprendimiento.",
-        "Eliminar proyectos tecnológicos externos.",
-        "Limitar el contacto con el sector productivo."
-    ],
-    "ans": 1,
-    "tip": "Los convenios ayudan a mejorar la experiencia laboral."
-},
-{
-    "q": "¿Qué plantea la visión del programa para el año 2027?",
-    "opts": [
-        "Reducir el uso de tecnología educativa.",
-        "Ser líder con altos niveles de calidad académica.",
-        "Eliminar la flexibilidad curricular.",
-        "Enfocarse únicamente en el contexto regional."
-    ],
-    "ans": 1,
-    "tip": "La visión resalta la calidad y el liderazgo académico."
-}
+    {
+        "q":    "¿Qué significa 'PEPIS' en el contexto del juego?",
+        "opts": [
+            "Programa Educativo Para Ingenieros de Sistemas",
+            "Personaje Épico Pixelado de Ingeniería de Sistemas",
+            "Proyecto Estudiantil de Programación e Ingeniería",
+            "Pepis no significa nada, es solo un nombre",
+        ],
+        "ans": 1,
+        "tip": "Pepis es la mascota pixel-art de Ingeniería de Sistemas.",
+    },
+    {
+        "q":    "¿Qué tecnología usa el juego El Pepis?",
+        "opts": [
+            "Unity + C#",
+            "Godot + GDScript",
+            "Python + Pygame",
+            "JavaScript + Phaser",
+        ],
+        "ans": 2,
+        "tip": "El juego está construido 100% en Python usando Pygame.",
+    },
+    {
+        "q":    "¿Cuántos saltos puede hacer Pepis?",
+        "opts": [
+            "Solo 1 salto",
+            "3 saltos (triple jump)",
+            "2 saltos (doble salto)",
+            "Salto infinito",
+        ],
+        "ans": 2,
+        "tip": "Pepis tiene doble salto: el segundo es algo menos potente.",
+    },
+    {
+        "q":    "¿Qué hace el jugador al saltar sobre un enemigo?",
+        "opts": [
+            "Nada, rebota",
+            "Pierde HP",
+            "Elimina al enemigo y rebota",
+            "Teletransporta al inicio",
+        ],
+        "ans": 2,
+        "tip": "Como en Mario: pisar enemigos los elimina y otorga puntos.",
+    },
+    {
+        "q":    "¿Cuánto daño hace cada bola de fuego?",
+        "opts": ["5 HP", "10 HP", "25 HP", "50 HP"],
+        "ans": 1,
+        "tip": "Cada proyectil quita 10 HP al jugador.",
+    },
 ]
 
 LEVEL_DEFS = [
@@ -3257,209 +3254,6 @@ def _draw_cyber_heart(surface, cx, cy, size=11):
 def screen_victory(surface, fonts, level_times, player_img=None, icon_img=None):
     """Stub de compatibilidad — en Game se usa VictoryScreen.draw() directamente."""
     pass
-
-    # Viñeta radial oscura en las esquinas
-    vig = pygame.Surface((SW, SH), pygame.SRCALPHA)
-    for step in range(0, 260, 8):
-        r_ = 340 - step
-        a_ = step // 5
-        if r_ > 0:
-            pygame.draw.ellipse(vig, (0, 0, 0, a_),
-                                (SW // 2 - r_, SH // 2 - r_, r_ * 2, r_ * 2))
-    surface.blit(vig, (0, 0))
-
-    # ══ BARRA SUPERIOR (scanline decorativa) ══════════════════════
-    pygame.draw.rect(surface, (0, 60, 35), (0, 0, SW, 28))
-    pygame.draw.line(surface, NEON, (0, 28), (SW, 28), 2)
-
-    # ══ BARRA INFERIOR ════════════════════════════════════════════
-    pygame.draw.rect(surface, (0, 60, 35), (0, SH - 28, SW, 28))
-    pygame.draw.line(surface, NEON, (0, SH - 28), (SW, SH - 28), 2)
-    fin_txt = "// FIN DEL SISTEMA //"
-    shadow_text(surface, fin_txt, fonts["tiny"], NEON,
-                SW - fonts["tiny"].size(fin_txt)[0] - 12, SH - 20)
-    sync_txt = "DATA SYNC: OK  ■  PEPIS CORE: STABLE"
-    shadow_text(surface, sync_txt, fonts["tiny"], (0, 160, 90),
-                12, SH - 20)
-
-    # ══ TÍTULO ════════════════════════════════════════════════════
-    title   = "¡FELICIDADES!"
-    pulse   = abs(math.sin(t * 2.2))
-    t_green = (int(60 + 195 * pulse), 255, int(60 + 80 * pulse))
-    tw      = fonts["big"].size(title)[0]
-    # sombra neón tipo glow: blit 4 veces desplazado
-    for dx, dy in [(-2,0),(2,0),(0,-2),(0,2)]:
-        shadow_text(surface, title, fonts["big"], (0, 80, 40),
-                    SW // 2 - tw // 2 + dx, 36 + dy)
-    shadow_text(surface, title, fonts["big"], t_green,
-                SW // 2 - tw // 2, 36)
-
-    # Estrellas doradas flanqueando título
-    for side in [-1, 1]:
-        sx = SW // 2 + side * (tw // 2 + 20)
-        draw_star_simple(surface, sx, 62, 14, True)
-
-    # Subtítulo
-    sub = "Has completado El Pepis — Ingeniería de Sistemas"
-    sw_ = fonts["small"].size(sub)[0]
-    shadow_text(surface, sub, fonts["small"], CYAN,
-                SW // 2 - sw_ // 2, 100)
-
-    # ════════════════════════════════════════════════════════════
-    #  ZONA IZQUIERDA — Pepis grande
-    #  Usa pepis_final.png (grande) si existe, si no pepis_idle.png
-    # ════════════════════════════════════════════════════════════
-    LEFT_W   = 300          # ancho reservado para el personaje
-    PEPIS_CX = LEFT_W // 2  # centro horizontal de la zona
-    PEPIS_BY = SH - 50      # base (pies) del personaje
-
-    pimg = player_img       # puede ser None → placeholder
-    if pimg:
-        pw, ph = pimg.get_size()
-        # Bob suave
-        bob = int(math.sin(t * 1.8) * 5)
-
-        # Plataforma circular neón bajo los pies
-        plat_cx = PEPIS_CX
-        plat_cy = PEPIS_BY - 8
-        for ring_r in range(70, 10, -12):
-            ring_a = int(30 + 40 * abs(math.sin(t * 1.2 + ring_r * 0.05)))
-            ring_surf = pygame.Surface((ring_r * 2 + 4, 20), pygame.SRCALPHA)
-            pygame.draw.ellipse(ring_surf, (*CYAN, ring_a),
-                                (0, 0, ring_r * 2 + 4, 20))
-            surface.blit(ring_surf,
-                         (plat_cx - ring_r - 2, plat_cy - 8))
-
-        # Halo verde detrás del sprite
-        halo_r = max(pw, ph) // 2 + 30
-        halo_a = int(35 + 20 * abs(math.sin(t * 1.4)))
-        halo   = pygame.Surface((halo_r * 2, halo_r * 2), pygame.SRCALPHA)
-        pygame.draw.circle(halo, (*NEON, halo_a), (halo_r, halo_r), halo_r)
-        surface.blit(halo, (PEPIS_CX - halo_r, PEPIS_BY - ph - halo_r + bob))
-
-        # Sprite
-        surface.blit(pimg, (PEPIS_CX - pw // 2, PEPIS_BY - ph + bob))
-
-    else:
-        # Placeholder si no hay imagen
-        ph  = 180
-        pw  = 120
-        bob = int(math.sin(t * 1.8) * 5)
-        ph_surf = make_placeholder(pw, ph, (40, 80, 60), "PEPIS")
-        surface.blit(ph_surf, (PEPIS_CX - pw // 2, PEPIS_BY - ph + bob))
-
-    # Etiqueta "EL PEPIS" bajo el personaje
-    lbl = "EL PEPIS"
-    lw  = fonts["small"].size(lbl)[0]
-    shadow_text(surface, lbl, fonts["small"], NEON,
-                PEPIS_CX - lw // 2, PEPIS_BY + 4)
-
-    # ════════════════════════════════════════════════════════════
-    #  ZONA DERECHA — panel de tiempos cyberpunk
-    # ════════════════════════════════════════════════════════════
-    PX   = 310     # origen X del panel
-    PY   = 128     # origen Y
-    PW   = SW - PX - 16   # ancho hasta el borde derecho
-    RH   = 46      # alto de cada fila
-    PH   = 52 + RH * 5 + 56  # alto total del panel
-
-    # Fondo panel con bordes neón estilo HUD
-    panel_s = pygame.Surface((PW, PH), pygame.SRCALPHA)
-    panel_s.fill((0, 10, 5, 200))
-    surface.blit(panel_s, (PX, PY))
-
-    # Marco exterior doble línea
-    pygame.draw.rect(surface, NEON,   (PX, PY, PW, PH), 2, border_radius=4)
-    pygame.draw.rect(surface, (0,60,35), (PX+3, PY+3, PW-6, PH-6), 1, border_radius=3)
-
-    # Barra diagonal decorativa en esquina superior derecha del panel
-    for k in range(5):
-        pygame.draw.line(surface, (*NEON, 120 - k * 20),
-                         (PX + PW - 30 + k * 5, PY),
-                         (PX + PW, PY + 30 - k * 5), 2)
-
-    # Encabezado
-    shadow_text(surface, "TIEMPOS POR NIVEL", fonts["small"], GOLD,
-                PX + 16, PY + 14)
-    pygame.draw.line(surface, NEON, (PX + 8, PY + 42), (PX + PW - 8, PY + 42), 1)
-
-    # ── Filas de niveles ──────────────────────────────────────────
-    total = sum(level_times)
-    ry    = PY + 48
-
-    for i, secs in enumerate(level_times):
-        name     = f"Nivel {i + 1}"
-        mins_, s_ = divmod(secs, 60)
-        tstr     = f"{mins_:02d}:{s_:02d}" if mins_ else f"{secs}s"
-        done     = secs > 0
-        row_col  = NEON if done else (40, 70, 50)
-
-        # Fondo de fila alterno
-        if i % 2 == 0:
-            rb = pygame.Surface((PW - 6, RH - 4), pygame.SRCALPHA)
-            rb.fill((0, 255, 100, 12))
-            surface.blit(rb, (PX + 3, ry + 2))
-
-        # Icono — imagen PNG si existe, si no corazón vectorial
-        icon_cx = PX + 28
-        icon_cy = ry + RH // 2
-        if icon_img:
-            iw_ = icon_img.get_width()
-            ih_ = icon_img.get_height()
-            isz = 22
-            iscaled = pygame.transform.scale(
-                icon_img, (isz, int(isz * ih_ / max(iw_, 1))))
-            surface.blit(iscaled,
-                         (icon_cx - isz // 2,
-                          icon_cy - iscaled.get_height() // 2))
-        else:
-            _draw_cyber_heart(surface, icon_cx, icon_cy, size=13)
-
-        # Nombre
-        shadow_text(surface, name, fonts["small"], row_col,
-                    PX + 52, ry + (RH - fonts["small"].get_height()) // 2)
-
-        # Tiempo (derecha, fuente más grande)
-        tw_ = fonts["med"].size(tstr)[0]
-        shadow_text(surface, tstr, fonts["med"], row_col,
-                    PX + PW - tw_ - 18,
-                    ry + (RH - fonts["med"].get_height()) // 2)
-
-        # Línea separadora entre filas
-        pygame.draw.line(surface, (0, 60, 35),
-                         (PX + 8, ry + RH - 1),
-                         (PX + PW - 8, ry + RH - 1), 1)
-        ry += RH
-
-    # ── Total ──────────────────────────────────────────────────────
-    pygame.draw.line(surface, GOLD, (PX + 8, ry + 2), (PX + PW - 8, ry + 2), 2)
-
-    mins_t, s_t = divmod(total, 60)
-    tstr_total  = f"{mins_t:02d}:{s_t:02d}" if mins_t else f"{total}s"
-    tw_tot      = fonts["med"].size(tstr_total)[0]
-    shadow_text(surface, "TIEMPO TOTAL", fonts["med"], GOLD,
-                PX + 18, ry + 12)
-    shadow_text(surface, tstr_total, fonts["med"], GOLD,
-                PX + PW - tw_tot - 18, ry + 12)
-
-    # ── Botones ENTER / R estilo HUD ──────────────────────────────
-    btn_y  = PY + PH + 18
-    btn_defs = [
-        (PX + PW // 4,       "[ ENTER ]", "Volver al menú",  CYAN),
-        (PX + PW * 3 // 4,   "[ R ]",     "Reiniciar juego", (180, 180, 180)),
-    ]
-    for bx, key_txt, label_txt, bcol in btn_defs:
-        bw, bh = 190, 48
-        btn_s = pygame.Surface((bw, bh), pygame.SRCALPHA)
-        btn_s.fill((0, 20, 12, 180))
-        pygame.draw.rect(btn_s, bcol, (0, 0, bw, bh), 1, border_radius=6)
-        surface.blit(btn_s, (bx - bw // 2, btn_y))
-        kw = fonts["small"].size(key_txt)[0]
-        lw = fonts["tiny"].size(label_txt)[0]
-        shadow_text(surface, key_txt,   fonts["small"], bcol,
-                    bx - kw // 2, btn_y + 6)
-        shadow_text(surface, label_txt, fonts["tiny"],  bcol,
-                    bx - lw // 2, btn_y + 28)
 
 
 # ══════════════════════════════════════════════
