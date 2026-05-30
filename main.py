@@ -3401,15 +3401,23 @@ class Game:
 
                     hp_r = self.level.player.hp / PLAYER_MAX_HP
                     base = 3 if hp_r > 0.7 else 2 if hp_r > 0.3 else 1
-                    self._pending_stars  = base
-                    self.quiz_stars      = base
-                    self._quiz_opt_rects = []
-                    self.quiz_answered   = -1
-                    self.quiz_correct    = None
-                    self.quiz_done       = False
-                    # Todos los niveles pasan por el quiz primero
-                    self.state = "quiz"
-                    self.sounds.play("levelwin")
+
+                    # Nivel 5 → victoria directa SIN pasar por quiz
+                    if idx == 4:
+                        self.level_stars[4] = max(self.level_stars[4], base)
+                        self.unlocked = 4
+                        self.save_sys.save(self.unlocked, self.level_stars)
+                        self.sounds.stop_music()
+                        self.state = "victory"
+                    else:
+                        self._pending_stars  = base
+                        self.quiz_stars      = base
+                        self._quiz_opt_rects = []
+                        self.quiz_answered   = -1
+                        self.quiz_correct    = None
+                        self.quiz_done       = False
+                        self.state = "quiz"
+                        self.sounds.play("levelwin")
 
             if self.state == "menu":
                 self._level_rects = self.menu_screen.draw(
@@ -3452,15 +3460,15 @@ class Game:
         earned = self.quiz_stars
         idx    = self.current_lvl_idx
 
-        # Desbloquear siguiente nivel
-        if earned >= 2:
-            new_unlock    = min(4, idx + 1)
-            self.unlocked = max(self.unlocked, new_unlock)
+        # Desbloquear siguiente nivel (con 1 estrella también avanza)
+        new_unlock    = min(4, idx + 1)
+        self.unlocked = max(self.unlocked, new_unlock)
         self.level_stars[idx] = max(self.level_stars[idx], earned)
         self.save_sys.save(self.unlocked, self.level_stars)
 
-        # Nivel 5 → pantalla de victoria, resto → menú
+        # Nivel 5 (idx=4) → SIEMPRE pantalla de victoria
         if idx == 4:
+            print(f"[DEBUG] Going to victory! level_times={self.level_times}")
             self.sounds.stop_music()
             self.state = "victory"
         else:
